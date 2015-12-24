@@ -53,6 +53,7 @@
     <Compile Include="..\VersionInfo.cs">
       <Link>VersionInfo.cs</Link>
     </Compile>
+    <Compile Include="ConfiguredAndLoadedCollection.cs" />
     <Compile Include="Internal\PathHelper.cs" />
     <Compile Include="Internal\QueryStringHelper.cs" />
     <Compile Include="Metadata\KeyInfoSerializer.cs" />
@@ -68,7 +69,7 @@
     <Compile Include="Metadata\ExtendedEntitiesDescriptor.cs" />
     <Compile Include="ICachedMetadata.cs" />
     <Compile Include="MetadataRefreshScheduler.cs" />
-    <Compile Include="Metadata\EntityDescriptorExtensions.cs" />
+    <Compile Include="Metadata\ServiceProviderSingleSignOnDescriptorExtensions.cs" />
     <Compile Include="Metadata\ExtendedEntityDescriptor.cs" />
     <Compile Include="AuthServicesException.cs" />
     <Compile Include="WebSso\AuthServicesUrls.cs" />

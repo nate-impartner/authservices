@@ -204,6 +204,50 @@ namespace Kentor.AuthServices.Tests.Saml2P
 
         [TestMethod]
         [NotReRunnable]
+        public void Saml2Response_GetClaims_CorrectSignedResponseMessageSecondaryKey()
+        {
+            var response =
+            @"<?xml version=""1.0"" encoding=""UTF-8""?>
+            <saml2p:Response xmlns:saml2p=""urn:oasis:names:tc:SAML:2.0:protocol""
+            xmlns:saml2=""urn:oasis:names:tc:SAML:2.0:assertion""
+            ID = """ + MethodBase.GetCurrentMethod().Name + @""" Version=""2.0"" IssueInstant=""2013-01-01T00:00:00Z"">
+                <saml2:Issuer>https://twokeys.example.com</saml2:Issuer>
+                <saml2p:Status>
+                    <saml2p:StatusCode Value=""urn:oasis:names:tc:SAML:2.0:status:Success"" />
+                </saml2p:Status>
+                <saml2:Assertion xmlns:saml2=""urn:oasis:names:tc:SAML:2.0:assertion""
+                Version=""2.0"" ID=""" + MethodBase.GetCurrentMethod().Name + @"_Assertion1""
+                IssueInstant=""2013-09-25T00:00:00Z"">
+                    <saml2:Issuer>https://twokeys.example.com</saml2:Issuer>
+                    <saml2:Subject>
+                        <saml2:NameID>SomeUser</saml2:NameID>
+                        <saml2:SubjectConfirmation Method=""urn:oasis:names:tc:SAML:2.0:cm:bearer"" />
+                    </saml2:Subject>
+                    <saml2:Conditions NotOnOrAfter=""2100-01-01T00:00:00Z"" />
+                </saml2:Assertion>
+            </saml2p:Response>";
+
+            var signedResponse = SignedXmlHelper.SignXml(response);
+
+            var options = StubFactory.CreateOptions();
+
+            var idp = new IdentityProvider(
+                new EntityId("https://twokeys.example.com"), options.SPOptions)
+            {
+                AllowUnsolicitedAuthnResponse = true
+            };
+
+            idp.SigningKeys.AddConfiguredItem(SignedXmlHelper.TestKey2);
+            idp.SigningKeys.AddConfiguredItem(SignedXmlHelper.TestKey);
+
+            options.IdentityProviders.Add(idp);
+
+            Action a = () => Saml2Response.Read(signedResponse).GetClaims(options);
+            a.ShouldNotThrow();
+        }
+
+        [TestMethod]
+        [NotReRunnable]
         public void Saml2Response_GetClaims_CorrectSignedResponseMessage_WithAuthnStatement()
         {
             var response =
@@ -1462,6 +1506,38 @@ namespace Kentor.AuthServices.Tests.Saml2P
         }
 
         [TestMethod]
+        public void Saml2Response_GetClaims_ThrowsOnEmptyOptions()
+        {
+            var response =
+            @"<?xml version=""1.0"" encoding=""UTF-8""?>
+            <saml2p:Response xmlns:saml2p=""urn:oasis:names:tc:SAML:2.0:protocol""
+            xmlns:saml2=""urn:oasis:names:tc:SAML:2.0:assertion""
+            ID = """ + MethodBase.GetCurrentMethod().Name + @""" Version=""2.0"" IssueInstant=""2013-01-01T00:00:00Z"">
+                <saml2:Issuer>https://idp.example.com</saml2:Issuer>
+                <saml2p:Status>
+                    <saml2p:StatusCode Value=""urn:oasis:names:tc:SAML:2.0:status:Requester"" />
+                </saml2p:Status>
+                <saml2:Assertion
+                Version=""2.0"" ID=""" + MethodBase.GetCurrentMethod().Name + @"_Assertion""
+                IssueInstant=""2013-09-25T00:00:00Z"">
+                    <saml2:Issuer>https://idp.example.com</saml2:Issuer>
+                    <saml2:Subject>
+                        <saml2:NameID>SomeUser</saml2:NameID>
+                        <saml2:SubjectConfirmation Method=""urn:oasis:names:tc:SAML:2.0:cm:bearer"" />
+                    </saml2:Subject>
+                    <saml2:Conditions NotOnOrAfter=""2100-01-01T00:00:00Z"" />
+                </saml2:Assertion>
+            </saml2p:Response>";
+
+            var xml = SignedXmlHelper.SignXml(response);
+
+            var subject = Saml2Response.Read(xml);
+
+            Action a = () => subject.GetClaims(null);
+            a.ShouldThrow<ArgumentNullException>().And.ParamName.Should().Be("options");
+        }
+
+        [TestMethod]
         public void Saml2Response_GetClaims_ThrowsOnStatusFailure()
         {
             var response =
@@ -1571,6 +1647,9 @@ namespace Kentor.AuthServices.Tests.Saml2P
             var xml = response.XmlDocument;
 
             xml.FirstChild.OuterXml.Should().StartWith("<?xml version=\"1.0\"");
+            xml.DocumentElement.LocalName.Should().Be("Response");
+            xml.DocumentElement.NamespaceURI.Should().Be(Saml2Namespaces.Saml2PName);
+            xml.DocumentElement.Prefix.Should().Be("saml2p");
             xml.DocumentElement["Issuer", Saml2Namespaces.Saml2Name].InnerText.Should().Be(issuer.Id);
             xml.DocumentElement["Assertion", Saml2Namespaces.Saml2Name]
                 ["Subject", Saml2Namespaces.Saml2Name]["NameID", Saml2Namespaces.Saml2Name]
@@ -1637,7 +1716,7 @@ namespace Kentor.AuthServices.Tests.Saml2P
             signedXml.LoadXml(signature);
 
             signature.Should().NotBeNull();
-
+            signedXml.KeyInfo.Count.Should().Be(1);
             signedXml.CheckSignature(SignedXmlHelper.TestCert, true).Should().BeTrue();
         }
 

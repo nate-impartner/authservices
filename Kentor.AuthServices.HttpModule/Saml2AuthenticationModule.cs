@@ -26,7 +26,7 @@ namespace Kentor.AuthServices.HttpModule
     {
       if (context == null)
       {
-        throw new ArgumentNullException("context");
+        throw new ArgumentNullException(nameof(context));
       }
       context.BeginRequest += OnBeginRequest;
 
@@ -54,27 +54,12 @@ namespace Kentor.AuthServices.HttpModule
         var commandName = appRelativePath.Substring(modulePath.Length);
 
         var command = CommandFactory.GetCommand(commandName);
-        var commandResult = RunCommand(application, command, options);
+        var commandResult = command.Run(
+            new HttpRequestWrapper(application.Request).ToHttpRequestData(),
+            options);
 
         commandResult.SignInSessionAuthenticationModule();
         commandResult.Apply(new HttpResponseWrapper(application.Response));
-      }
-    }
-
-    private static CommandResult RunCommand(HttpApplication application, ICommand command, IOptions options)
-    {
-      try
-      {
-        return command.Run(
-            new HttpRequestWrapper(application.Request).ToHttpRequestData(),
-            options);
-      }
-      catch (AuthServicesException)
-      {
-        return new CommandResult
-        {
-          HttpStatusCode = HttpStatusCode.InternalServerError
-        };
       }
     }
 
